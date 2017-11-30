@@ -5,16 +5,16 @@ program misr_m2
   write(*,*) 'Opening I3RC output file...'
   
     status = nf90_open(netcdf_file,0,ncid)
-	if(status .ne. nf90_noerr) stop 'File Error'
-	status = nf90_inq_varid(ncid,'intensity',varid)
-	if(status .ne. nf90_noerr) stop 'Variable not found'
+    if(status .ne. nf90_noerr) stop 'File Error'
+    status = nf90_inq_varid(ncid,'intensity',varid)
+    if(status .ne. nf90_noerr) stop 'Variable not found'
 	
-	status = nf90_inquire_dimension(ncid,1,len = dimension(1))
-	status = nf90_inquire_dimension(ncid,2,len = dimension(2))
-	status = nf90_inquire_dimension(ncid,3,len = dimension(3))
+    status = nf90_inquire_dimension(ncid,1,len = dimension(1))
+    status = nf90_inquire_dimension(ncid,2,len = dimension(2))
+    status = nf90_inquire_dimension(ncid,3,len = dimension(3))
 	
-   nx = dimension(2)
-   ny = dimension(3)
+    nx = dimension(2)
+    ny = dimension(3)
 	
 !   Check for angular information
 !   zeniths represented as cos_inverse(mu) and azimuths as phi
@@ -41,3 +41,13 @@ program misr_m2
     Ref_zenith = acos(180.0/pi*mu(Ref_File_ID))
     Comp_zenith_1 = acos(180.0/pi*mu(Comp_File_1_ID))
     Comp_zenith_2 = acos(180.0/pi*mu(Comp_File_2_ID))
+    
+!  Now calculate the sizes of the search area box
+!  Refer to MISR Level 2 Cloud Product Algorithm Theoretical Basis (Page 17), JPL D-73327
+!  Defining the minimum and maximum SOM x and y disparities
+    
+    dtan = tan(Comp_Zenith_1 * pi/180) - tan(Ref_zenith * pi/180)
+    dxmin = hmin * dtan - abs(vmax * dt)
+    dxmax = hmax * dtan - abs(vmax * dt)
+    dymin = -abs(vmax * dt)
+    dymax = abs(vmax * dt)
