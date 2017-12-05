@@ -41,21 +41,30 @@ program misr_m2
     Ref_zenith = acos(180.0/pi*mu(Ref_File_ID))
     Comp_zenith_1 = acos(180.0/pi*mu(Comp_File_1_ID))
     Comp_zenith_2 = acos(180.0/pi*mu(Comp_File_2_ID))
-    
+
+!  Now let us initialize the height vectors H1, H2 and the cumulative height vector H with garbage values(-666)
+   H(:,:) = -666
+   H1(:,:) = -666
+   H2(:,:) = -666
+   
 !  Now calculate the sizes of the search area box
 !  Refer to MISR Level 2 Cloud Product Algorithm Theoretical Basis (Page 17), JPL D-73327
 !  Defining the minimum and maximum SOM x and y disparities
     
     dtan = tan(Comp_Zenith_1 * pi/180) - tan(Ref_zenith * pi/180)
     if (dtan.ge.0) then
-    dxmin = int((hmin * dtan - abs(vmax * dt))/pixel_size)
-    dxmax = hmax * dtan + abs(vmax * dt)
+    dxmin = int((hmin * dtan - abs(vmax * dt))/pixel_size)-1
+    dxmax = int((hmax * dtan + abs(vmax * dt))/pixel_size)+1
     else 
-    dxmin = hmax * dtan - abs(vmax * dt)
-    dxmax = hmin * dtan + abs(vmax * dt)
+    dxmin = int((hmax * dtan - abs(vmax * dt))/pixel_size)-1
+    dxmax = int((hmin * dtan + abs(vmax * dt))/pixel_size)+1
     end if
-    dymin = -abs(vmax * dt)
-    dymax = abs(vmax * dt)
+    dymin = int(-abs(vmax * dt)/pixel_size)-1
+    dymax = int(abs(vmax * dt)/pixel_size)+1
    
 !  Setting the number of steps in the along-track(y) and cross-track(x) directions
-    La = int(dxmin)
+    Nc = abs(dxmax-dxmin) + 1
+    Na = abs(dcmax-dcmin) + 1
+    max_patches = Nc * Na 
+    
+
