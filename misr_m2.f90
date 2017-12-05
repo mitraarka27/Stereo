@@ -47,7 +47,15 @@ program misr_m2
 !  Defining the minimum and maximum SOM x and y disparities
     
     dtan = tan(Comp_Zenith_1 * pi/180) - tan(Ref_zenith * pi/180)
-    dxmin = hmin * dtan - abs(vmax * dt)
-    dxmax = hmax * dtan - abs(vmax * dt)
+    if (dtan.ge.0) then
+    dxmin = int((hmin * dtan - abs(vmax * dt))/pixel_size)
+    dxmax = hmax * dtan + abs(vmax * dt)
+    else 
+    dxmin = hmax * dtan - abs(vmax * dt)
+    dxmax = hmin * dtan + abs(vmax * dt)
+    end if
     dymin = -abs(vmax * dt)
     dymax = abs(vmax * dt)
+   
+!  Setting the number of steps in the along-track(y) and cross-track(x) directions
+    La = int(dxmin)
