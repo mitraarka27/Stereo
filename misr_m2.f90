@@ -13,8 +13,8 @@ program misr_m2
     status = nf90_inquire_dimension(ncid,2,len = dimension(2))
     status = nf90_inquire_dimension(ncid,3,len = dimension(3))
 	
-    nx = dimension(2)
-    ny = dimension(3)
+    nx = dimension(1)
+    ny = dimension(2)
 	
 !   Check for angular information
 !   zeniths represented as cos_inverse(mu) and azimuths as phi
@@ -47,7 +47,7 @@ program misr_m2
    H1(:,:) = -666
    H2(:,:) = -666
    
-!  Now calculate the sizes of the search area box
+!  Now calculate the sizes of the search area box for 1st comparison image
 !  Refer to MISR Level 2 Cloud Product Algorithm Theoretical Basis (Page 17), JPL D-73327
 !  Defining the minimum and maximum SOM x and y disparities
     
@@ -67,4 +67,8 @@ program misr_m2
     Na = abs(dcmax-dcmin) + 1
     max_patches = Nc * Na 
     
-
+!  Now calculate cloud top heights using the stereo code
+    
+    H1 = stereo( , , , )
+    
+!  
