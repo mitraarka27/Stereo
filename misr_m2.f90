@@ -21,6 +21,7 @@ program misr_m2
     status = nf90_inq_varid(ncid,'intensityPhis',phiid)
 	
 
+!   Rows = y, Columns = x
     nx = length(1)
     ny = length(2)
 
@@ -119,34 +120,35 @@ program misr_m2
    contains
  
  !--**************************************-Along-track Disparity Calculation-***********************************************
-    real function StereoHeight(c1,r1,c2,r2,v1,v2)
+    real function StereoHeight(c1,r1,c2,r2,theta0,theta1)
     
-    real, intent(in) :: c2,r2,v1,v2
+    real, intent(in) :: c2,r2,theta0,theta1
     real :: d
     integer,intent(in) :: c1,r1
 
     d=sqrt((r2-r1)**2.+(c2-c1)**2.)*pixelSize
-    StereoHeight=d/abs(tan(v2*pi/180)-tan(v1*pi/180))
+    StereoHeight=d/abs(tan(theta1*pi/180)-tan(theta0*pi/180))
     end function StereoHeight
     
  !--**************************************-MISR M2 Stereo Matcher Code-****************************************************
     function stereo(I1,I2,v1,v2)
     real, dimension(nCols,nRows) :: m2matcher
     real, intent(in) :: v1,v2
-    real, dimension(0:nCols-1,0:nRows-1), intent(in) :: I1,I2
-    real, dimension(0:nCols-1,0:nRows-1) :: S,Sp,Sa
-    real, dimension(0:nCols-1,0:nRows-1,2) :: disp
+    real, dimension(0:nx-1,0:ny-1), intent(in) :: I1,I2
+    real, dimension(0:nx-1,0:ny-1) :: S,Sp,Sa
+    real, dimension(0:nx-1,0:ny-1,2) :: disp
     real, dimension(2*mwinC+1,2*mwinR+1) :: targetArray, searchArray
+    logical :: test
+    real :: pct, trange, srange, tbar, sbar, sigma, Rsigma
+    real :: big
     logical :: test
     integer, dimension(maxvecs,2) :: vecs
     integer :: m,n,x,y,xx,yy,vc,radj,i,j,sizeT,sizeS
-    real :: pct, trange, srange, tbar, sbar, sigma, Rsigma
-    real :: big
     big=10.**10
     pct=0.
-    m2matcher(:,:)=-9999.
-    do j=0,nRows-1
-      do i=0,nCols-1
+    stereo(:,:)=-9999.
+    do j=0,ny-1
+      do i=0,nx-1
         disp(i,j,:)=(/-1000, -1000/)
       end do
     end do
