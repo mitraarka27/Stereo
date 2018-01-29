@@ -54,15 +54,15 @@ program misr_m2
     Comp_zenith_2 = acos(180.0/pi*mu(CompImageNum2))
 
 !  Now let us initialize the height vectors H1, H2 and the cumulative height vector H with garbage values(-666)
-    H(:,:) = -9999
-    H1(:,:) = -9999
-    H2(:,:) = -9999
+    H(:,:) = -9999.
+    H1(:,:) = -9999.
+    H2(:,:) = -9999.
    
 !  Now calculate the sizes of the search area box for 1st comparison image
 !  Refer to MISR Level 2 Cloud Product Algorithm Theoretical Basis (Page 17), JPL D-73327
 !  Defining the minimum and maximum SOM x and y disparities
     
-    dtan = tan(Comp_Zenith_1 * pi/180) - tan(Ref_zenith * pi/180)
+    dtan = abs(tan(Comp_Zenith_1 * pi/180) - tan(Ref_zenith * pi/180))
     if (dtan.ge.0) then
     dxmin = int((hmin * dtan - abs(vmax * dt))/pixel_size)-1
     dxmax = int((hmax * dtan + abs(vmax * dt))/pixel_size)+1
@@ -84,16 +84,16 @@ program misr_m2
     
 !  Now calculate the sizes of the search area box for 2nd comparison image
 
-    dtan = tan(Comp_Zenith_2 * pi/180) - tan(Ref_zenith * pi/180)
+    dtan = abs(tan(Comp_Zenith_2 * pi/180) - tan(Ref_zenith * pi/180))
     if (dtan.ge.0) then
-    dxmin = int((hmin * dtan - abs(vmax * dt))/pixel_size)-1
-    dxmax = int((hmax * dtan + abs(vmax * dt))/pixel_size)+1
+    xmin = int((hmin * dtan - abs(vmax * dt))/pixel_size)-1
+    xmax = int((hmax * dtan + abs(vmax * dt))/pixel_size)+1
     else 
-    dxmin = int((hmax * dtan - abs(vmax * dt))/pixel_size)-1
-    dxmax = int((hmin * dtan + abs(vmax * dt))/pixel_size)+1
+    xmin = int((hmax * dtan - abs(vmax * dt))/pixel_size)-1
+    xmax = int((hmin * dtan + abs(vmax * dt))/pixel_size)+1
     end if
-    dymin = int(-abs(vmax * dt)/pixel_size)-1
-    dymax = int(abs(vmax * dt)/pixel_size)+1
+    ymin = int(-abs(vmax * dt)/pixel_size)-1
+    ymax = int(abs(vmax * dt)/pixel_size)+1
     
 !  Setting the number of steps in the along-track(y) and cross-track(x) directions again 
     Nc = abs(dxmax-dxmin) + 1
@@ -121,13 +121,11 @@ program misr_m2
  
  !--**************************************-Along-track Disparity Calculation-***********************************************
     real function StereoHeight(c1,r1,c2,r2,theta0,theta1)
-    
-    real, intent(in) :: c2,r2,theta0,theta1
+    real, intent(in) :: x1,x2,y1,y2,theta0,theta1
     real :: d
-    integer,intent(in) :: c1,r1
 
-    d=sqrt((r2-r1)**2.+(c2-c1)**2.)*pixelSize
-    StereoHeight=d/abs(tan(theta1*pi/180)-tan(theta0*pi/180))
+    d=sqrt((y2-y1)**2.+(x2-x1)**2.)
+    StereoHeight=d/abs(tan(theta1*pi/180)-tan(theta0*pi/180))*pixel_size
     end function StereoHeight
     
  !--**************************************-MISR M2 Stereo Matcher Code-****************************************************
@@ -137,26 +135,28 @@ program misr_m2
     real, dimension(0:nx-1,0:ny-1), intent(in) :: I1,I2
     real, dimension(0:nx-1,0:ny-1) :: S,Sp,Sa
     real, dimension(0:nx-1,0:ny-1,2) :: disp
-    real, dimension(2*mwinC+1,2*mwinR+1) :: targetArray, searchArray
+    real, dimension(5,5) :: targetPatch, searchPatch
     logical :: test
     real :: pct, trange, srange, tbar, sbar, sigma, Rsigma
     real :: big
     logical :: test
-    integer, dimension(maxvecs,2) :: vecs
+    integer, dimension(max_patches,2) :: vecs
     integer :: m,n,x,y,xx,yy,vc,radj,i,j,sizeT,sizeS
+    
     big=10.**10
     pct=0.
     stereo(:,:)=-9999.
+    
     do j=0,ny-1
       do i=0,nx-1
         disp(i,j,:)=(/-1000, -1000/)
       end do
     end do
-        vc=1
-!print*,dcmin,dcmax,drmin,drmax
-    do x=min(dcmin, dcmax),max(dcmin, dcmax)
+    vc=1
+
+    do x=min(xmin,xmax),max(xmin,xmax)
       xx=x
-      do y=min(drmin, drmax),max(drmin, drmax)
+      do y=min(ymin, ymax),max(ymin, ymax)
         yy=y
         vecs(vc,1)=xx
         vecs(vc,2)=yy
@@ -164,26 +164,99 @@ program misr_m2
       end do
     end do
     vc=vc-1
-!print*,vc
+    
+    !print*,vc
+    
     S(:,:)=big
     Sa(:,:)=big
+    Sp(:,:)=big*2
 
-    do x=1,vc
-      if (real(x)/real(vc) .ge. pct) then
+    do x = 1,vc
+     if (real(x)/real(vc) .ge. pct) then
         write(*,'(i3,a)') int(pct*100), '% Complete'
         pct=pct+0.25
-      end if
-      Sp(:,:)=big*2
-      sizeT=(2*mwinR+1)*(2*mwinC+1)
-      sizeS=(2*mwinR+1)*(2*mwinC+1)
+     end if 
+      
+      
+    sizeT=edge**2
+    sizeS=edge**2
+      
+      do n=0,ny-1
+        do m=0,nx-1
+          if ((m+vecs(x,1)-edge .ge. 0).and.(n+vecs(x,2)-edge .ge. 0) .and. &
+                (m-edge .ge. 0).and.(n-edge .ge. 0) .and. &
+                (m+edge .lt. nx).and.(n+edge .lt. ny) .and. &
+                (m+vecs(x,1)+edge .lt. nx).and.(n+vecs(x,2)+edge .lt. ny)) then
+		
+              targetPatch(:,:) = I1(m-edge:m+edge,n-edge:n+edge)
+              searchPatch(:,:) = I2(m+vecs(x,1)-edge:m+vecs(x,1)+edge,n+vecs(x,2)-edge:n+vecs(x,2)+edge)
+              dR=maxval(targetPatch) - minval(target)
+              !print*,'dC = ',dC
+              dC=maxval(searchPatch) - minval(searchPatch)
+	      !print*,'dR = ',dR
+              avgR = sum(targetPatch)/sizeT
+              avgC = sum(searchPatch)/sizeS
+              sigma = sum(abs((targetPatch - avgR)/dR))
+	      
+              if(contrastThreshold .eqv. .true.) then
+	      
+                if((sigma*SNR(m,n)*dR)/(dR*avgR) .ge. contrastThreshold) then
+		
+                  S_M2(m,n)=sum(abs((targetPatch-avgR)/dR-(searchPatch-avgC)/dC))/sigma
+                else
+		
+                  S_M2(m,n)=big*2
+                end if
+		
+              else
+	      
+                S_M2(m,n)=sum(abs((targetPatch-avgR)/dR-(searchPatch-avgC)/dC))/sigma
+		  
+              end if
+
+          end if
+        end do
+      end do
+!print*,minval(Sp),maxval(Sp)
+
       do n=0,nRows-1
         do m=0,nCols-1
-          if ((m+vecs(x,1)-mwinC .ge. 0).and.(n+vecs(x,2)-mwinR .ge. 0) .and. &
-                (m-mwinC .ge. 0).and.(n-mwinR .ge. 0) .and. &
-                (m+mwinC .lt. nCols).and.(n+mwinR .lt. nRows) .and. &
-              (m+vecs(x,1)+mwinC .lt. nCols).and.(n+vecs(x,2)+mwinR .lt. nRows)) then
-              targetArray(:,:)=I1(m-mwinC:m+mwinC,n-mwinR:n+mwinR)
-              searchArray(:,:)=I2(m+vecs(x,1)-mwinC:m+vecs(x,1)+mwinC,n+vecs(x,2)-mwinR:n+vecs(x,2)+mwinR)
-              trange=maxval(targetArray)-minval(targetArray)
-              !print*,'tr',trange
-              srange=maxval(searchArray)-minval(searchArray)
+          if (S(m,n) .gt. Sp(m,n)) then  !1.1*Sp? need else stmt to void match or second order of S
+            Sa(m,n)=S(m,n)
+            S(m,n)=Sp(m,n)
+            if(metricThreshold) then
+              if (S(m,n) .lt. threshold) then
+                disp(m,n,:)=vecs(x,:)
+              end if
+            else
+                disp(m,n,:)=vecs(x,:)
+            end if
+          else if (S(m,n) .eq. Sp(m,n)) then
+            if ((disp(m,n,1)**2+disp(m,n,2)**2).gt.(vecs(x,1)**2+vecs(x,2)**2)) then
+              Sa(m,n)=S(m,n)
+              disp(m,n,:)=vecs(x,:)
+            end if
+          end if
+        end do
+      end do
+    end do
+
+    print*,'Finding Heights...'
+    do n=0,nRows-1
+      do m=0,nCols-1
+        if (Heights(m+1,n+1).eq.-9999.) then
+          if (disp(m,n,1) .ne. -1000) then
+            m2matcher(m+1,n+1)=calcHeight(0,0,disp(m,n,1),disp(m,n,2),v1,v2)
+          end if
+        else
+          !--if height already stored, don't overwrite it
+          m2matcher(m+1,n+1)=Heights(m+1,n+1)
+        end if
+      end do
+    end do
+
+    if (ambiguity) then
+      where(Sa<(1.1*S)) m2matcher=-9999.
+    end if
+  end function m2matcher
+
